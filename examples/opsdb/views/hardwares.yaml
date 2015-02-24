@@ -1,0 +1,22 @@
+---
+source: qunar-ops
+title: 硬件列表
+description: 所有硬件资源
+columns:
+  - name: id
+  - name: purchased_at
+    title: 购买日期
+  - name: hostname
+    title: 主机名
+  - name: lan_ip
+    title: 内网地址
+  - name: oob_ip
+    title: 带外地址
+  - name: position
+    title: 物理位置
+
+list: >
+  select id, hostname, hostip as lan_ip, oob_ip, purchase_at as purchased_at, position from tb_devices;
+
+detail: >
+  select * from tb_devices;

@@ -1,0 +1,24 @@
+---
+source: qunar-ops
+title: 硬件列表
+description: 所有硬件资源
+columns:
+  - name: purchased_at
+    header: 购买日期
+  - name: hostname
+    header: 主机名
+  - name: lan_ip
+    header: 内网地址
+    writable: true
+  - name: oob_ip
+    header: 带外地址
+    writable: true
+  - name: position
+    header: 物理位置
+comments: >
+  Lorem ipsum dolor sit amet, consectetur adipiscing elit. Integer nec odio. Praesent libero. Sed cursus ante dapibus diam. Sed nisi. Nulla quis sem at nibh elementum imperdiet. Duis sagittis ipsum. Praesent mauris. Fusce nec tellus sed augue semper porta. Mauris massa. Vestibulum lacinia arcu eget nulla.
+
+detail: >
+  select hostname, hostip as lan_ip, oob_ip, purchase_at as purchased_at, position from tb_devices where id=:pk
+update: >
+  update tb_devices set (hostip, oob_ip) = (:lan_ip, :oob_ip) where id = :pk

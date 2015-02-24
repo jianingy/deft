@@ -1,0 +1,13 @@
+---
+source: qunar-ops
+columns:
+  - hostname:
+    header: 主机名
+  - lan_ip:
+    header: 内网地址
+  - oob_ip:
+    header: 带外地址
+  - purchased_at:
+    header: 购买日期
+base_query: >
+  select hostname, hostip as lan_ip, oob_ip, purchase_at as purchased_at  from tb_devices;
