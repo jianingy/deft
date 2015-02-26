@@ -119,6 +119,42 @@ def build_recipe_map(opts):
     return rmap
 
 
+def comment_yaml(x):
+    return '# %s' % x
+
+
+def create_form(draft, rmap, opts):
+    if opts.label not in rmap['forms']:
+        raise FormNotFoundError(label=opts.label)
+
+    with open(rmap['forms'][opts.label]) as y:
+        spec = yaml_load(y)
+
+    with open_datasource(rmap, spec['source']) as db:
+        initial = []
+        if 'comments' in spec:
+            wrapped = map(comment_yaml, wrap_text(spec['comments'], 78))
+            initial.extend(wrapped)
+        initial.append("# new values")
+        initial.append("# ----------")
+        avails = dict(map(lambda x: (x['name'], ''), spec['columns']))
+        initial.extend(yaml_dump(avails,
+                                 default_flow_style=False).split('\n'))
+        try:
+            status, yaml_str = edit(draft, opts, initial="\n".join(initial))
+            reviewed = yaml_load(yaml_str)
+            db.execute(text(spec['insert']), **reviewed)
+            return 0, "Record created successfully!"
+        except (YAMLParserError, YAMLScannerError) as e:
+            err = EditError('YAML Parsing Error: %s' % str(e))
+            err.original_exception = e
+            raise err
+        except sqlexc.StatementError:
+            err = EditError('SQL Statement Error: %s' % str(e))
+            err.original_exception = e
+            raise err
+
+
 def edit(draft, opts, initial=''):
     editor = os.environ.get('EDITOR', 'vim')
     draft.flush()
@@ -144,17 +180,16 @@ def edit_form(draft, rmap, opts):
                            spec['columns']))
 
     with open_datasource(rmap, spec['source']) as db:
-        comment = lambda x: '# %s' % x
         row = db.execute(text(spec['detail']), dict(pk=opts.pk)).fetchone()
         initial = []
         if 'comments' in spec:
-            wrapped = map(comment, wrap_text(spec['comments'], 78))
+            wrapped = map(comment_yaml, wrap_text(spec['comments'], 78))
             initial.extend(wrapped)
         original = yaml_dump(dict(row), default_flow_style=False).split('\n')
         initial.append("")
         initial.append("# originial values")
         initial.append("# ----------------")
-        initial.extend(map(comment, original))
+        initial.extend(map(comment_yaml, original))
         initial.append("# new values")
         initial.append("# ----------")
         can_edit = dict(filter(lambda x: x[0] in writables, dict(row).items()))
@@ -164,8 +199,13 @@ def edit_form(draft, rmap, opts):
             status, yaml_str = edit(draft, opts, initial="\n".join(initial))
             reviewed = yaml_load(yaml_str)
             db.execute(text(spec['update']), pk=opts.pk, **reviewed)
+            return 0, "Record updated successfully!"
         except (YAMLParserError, YAMLScannerError) as e:
             err = EditError('YAML Parsing Error: %s' % str(e))
+            err.original_exception = e
+            raise err
+        except sqlexc.StatementError:
+            err = EditError('SQL Statement Error: %s' % str(e))
             err.original_exception = e
             raise err
 
@@ -220,6 +260,10 @@ def parse_cli_option():
                           help=('primary key used to find the unique record'))
     cmd_edit.add_argument('label', help='name of the view')
 
+    # create command
+    cmd_create = cmds.add_parser('create', help='create a new record')
+    cmd_create.add_argument('label', help='name of the view')
+
     # list all views
     cmd_list_views = cmds.add_parser('list-views', help='list all views')
 
@@ -271,12 +315,12 @@ def parse_filter_expr(expr):
         fatal("filter expression error: %s" % e)
 
 
-def safe_edit_form(rmap, opts):
+def safe_edit(func, rmap, opts):
     with scratch() as draft:
         while True:
             try:
-                edit_form(draft, rmap, opts)
-                print "Record updated successfully!"
+                _, status = func(draft, rmap, opts)
+                print status
                 return
             except EditError as e:
                 print >>sys.stderr, "File Error: %s" % e
@@ -348,6 +392,8 @@ def main():
     if opts.cmd == 'show':
         show_view(rmap, opts)
     elif opts.cmd == 'edit':
-        safe_edit_form(rmap, opts)
+        safe_edit(edit_form, rmap, opts)
+    elif opts.cmd == 'create':
+        safe_edit(create_form, rmap, opts)
     elif opts.cmd == 'list-views':
         list_all_views(rmap)

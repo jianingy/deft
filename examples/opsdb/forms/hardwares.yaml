@@ -22,3 +22,5 @@ detail: >
   select hostname, hostip as lan_ip, oob_ip, purchase_at as purchased_at, position from tb_devices where id=:pk
 update: >
   update tb_devices set (hostip, oob_ip) = (:lan_ip, :oob_ip) where id = :pk
+insert:
+  insert into tb_devices (hostname, hostip, oob_ip, purchase_at) values (:hostname, :lan_ip, :oob_ip, :purchased_at)

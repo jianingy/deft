@@ -1,1 +1,1 @@
-# Deft
+# Deft (Database Editor For Terminal)
