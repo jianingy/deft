@@ -8,5 +8,5 @@ columns:
     header: 参数
 
 insert: INSERT INTO models (model) VALUES (:model);
-detail: SELECT id, model, params from models
-update: UPDATE models SET model=:model, params=:params WHERE id=:pk
+detail: SELECT id, model, params from models WHERE id=:pk;
+update: UPDATE models SET model=:model, params=:params WHERE id=:pk;

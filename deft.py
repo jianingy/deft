@@ -34,6 +34,7 @@ from yaml.parser import ParserError as YAMLParserError
 from yaml.scanner import ScannerError as YAMLScannerError
 
 import argparse
+import collections
 import pkg_resources
 import sqlalchemy.exc as sqlexc
 import sys
@@ -74,6 +75,10 @@ class FormNotFoundError(GenericError):
 
 class EditError(GenericError):
     original_exception = None
+
+
+class RecordNotFoundError(GenericError):
+    message = "cannot find record by given primary key"
 
 
 def warn(s):
@@ -143,8 +148,11 @@ def create_form(draft, rmap, opts):
         initial.extend(yaml_dump(avails,
                                  default_flow_style=False).split('\n'))
         try:
-            status, yaml_str = edit(draft, opts, initial="\n".join(initial))
-            reviewed = yaml_load(yaml_str)
+            if opts.values:
+                reviewed = parse_opt_values(opts.values)
+            else:
+                _, yaml_str = edit(draft, opts, initial="\n".join(initial))
+                reviewed = yaml_load(yaml_str)
             db.execute(text(spec['insert']), **reviewed)
             return 0, "Record created successfully!"
         except (YAMLParserError, YAMLScannerError) as e:
@@ -187,6 +195,8 @@ def edit_form(draft, rmap, opts):
 
     with open_datasource(rmap, spec['source']) as db:
         row = db.execute(text(spec['detail']), dict(pk=opts.pk)).fetchone()
+        if not row:
+            raise RecordNotFoundError()
         initial = []
         if 'comments' in spec:
             wrapped = map(comment_yaml, wrap_text(spec['comments'], 78))
@@ -209,8 +219,12 @@ def edit_form(draft, rmap, opts):
         initial.extend(yaml_dump(edit_form,
                                  default_flow_style=False).split('\n'))
         try:
-            status, yaml_str = edit(draft, opts, initial="\n".join(initial))
-            reviewed = yaml_load(yaml_str)
+            if opts.values:
+                reviewed = edit_form
+                update_nested_dict(reviewed, parse_opt_values(opts.values))
+            else:
+                _, yaml_str = edit(draft, opts, initial="\n".join(initial))
+                reviewed = yaml_load(yaml_str)
             for (k, v) in reviewed.iteritems():
                 if isinstance(v, dict):
                     reviewed[k].update(dict(map(
@@ -276,10 +290,12 @@ def parse_cli_option():
     cmd_edit.add_argument('--pk', required=True,
                           help=('primary key used to find the unique record'))
     cmd_edit.add_argument('label', help='name of the view')
+    cmd_edit.add_argument('--values', nargs='+', help='set values')
 
     # create command
     cmd_create = cmds.add_parser('create', help='create a new record')
     cmd_create.add_argument('label', help='name of the view')
+    cmd_create.add_argument('--values', nargs='+', help='set values')
 
     # list all views
     cmd_list_views = cmds.add_parser('list-views', help='list all views')
@@ -343,6 +359,19 @@ def parse_filter_expr(expr):
         return stmt.parseString(expr, parseAll=True)[0]
     except pp.ParseException as e:
         fatal("filter expression error: %s" % e)
+
+
+def parse_opt_values(values):
+    reviewed = dict()
+    for x in values:
+        key, val = map(lambda x: x.strip(), x.split(':', 1))
+        if key.find('.') > -1:
+            parent, key = key.split('.', 1)
+            if parent in reviewed:
+                reviewed[parent][key] = val
+            else:
+                reviewed[parent] = {key: val}
+    return reviewed
 
 
 def safe_edit(func, rmap, opts):
@@ -413,6 +442,16 @@ def show_view(rmap, opts):
                 t = PrettyTable(headers)
                 map(lambda row: t.add_row(row), rows)
                 print t
+
+
+def update_nested_dict(d, u):
+    for k, v in u.iteritems():
+        if isinstance(v, collections.Mapping):
+            r = update_nested_dict(d.get(k, {}), v)
+            d[k] = r
+        else:
+            d[k] = u[k]
+    return d
 
 
 def main():
