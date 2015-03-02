@@ -371,6 +371,8 @@ def parse_opt_values(values):
                 reviewed[parent][key] = val
             else:
                 reviewed[parent] = {key: val}
+        else:
+            reviewed[key] = val
     return reviewed
 
 
@@ -383,9 +385,12 @@ def safe_edit(func, rmap, opts):
                 return
             except EditError as e:
                 print >>sys.stderr, "File Error: %s" % e
-                val = raw_input("(A)bort, (R)etry: ").upper()
-                if val == 'A':
-                    break
+                if opts.values:
+                    return
+                else:
+                    val = raw_input("(A)bort, (R)etry: ").upper()
+                    if val == 'A':
+                        break
 
 
 @contextmanager
