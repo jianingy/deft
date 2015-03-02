@@ -1,0 +1,13 @@
+---
+source: default
+title: 摆放位置
+columns:
+  - name: datacenter
+    header: 数据中心
+  - name: rack
+    header: 机架编号
+  - name: start_unit
+    header: 起始位置
+
+insert: >-
+  INSERT INTO locations(dc_id, rack, start_unit) VALUES((SELECT id FROM datacenters WHERE name=:datacenter), :rack, :start_unit)

@@ -20,6 +20,7 @@
 # XXX: YAML Syntax Precheck
 
 from contextlib import contextmanager
+from datetime import datetime
 from json import dumps as json_encode
 from os.path import isdir, splitext, join as path_join
 from prettytable import PrettyTable
@@ -137,7 +138,8 @@ def create_form(draft, rmap, opts):
             initial.extend(wrapped)
         initial.append("# new values")
         initial.append("# ----------")
-        avails = dict(map(lambda x: (x['name'], ''), spec['columns']))
+        avails = dict(map(lambda x: (x['name'], parse_column_default(x)),
+                          spec['columns']))
         initial.extend(yaml_dump(avails,
                                  default_flow_style=False).split('\n'))
         try:
@@ -149,7 +151,7 @@ def create_form(draft, rmap, opts):
             err = EditError('YAML Parsing Error: %s' % str(e))
             err.original_exception = e
             raise err
-        except sqlexc.StatementError:
+        except sqlexc.StatementError as e:
             err = EditError('SQL Statement Error: %s' % str(e))
             err.original_exception = e
             raise err
@@ -175,9 +177,13 @@ def edit_form(draft, rmap, opts):
     with open(rmap['forms'][opts.label]) as y:
         spec = yaml_load(y)
 
-    writables = map(lambda x: x['name'],
-                    filter(lambda x: x.get('writable', False),
+    can_edits = map(lambda x: x['name'],
+                    filter(lambda x: 'noedit' not in x.get('perms', []),
                            spec['columns']))
+
+    defaults = dict(map(lambda x: (x['name'], parse_column_default(x)),
+                        filter(lambda x: 'noedit' not in x.get('perms', []),
+                               spec['columns'])))
 
     with open_datasource(rmap, spec['source']) as db:
         row = db.execute(text(spec['detail']), dict(pk=opts.pk)).fetchone()
@@ -185,26 +191,37 @@ def edit_form(draft, rmap, opts):
         if 'comments' in spec:
             wrapped = map(comment_yaml, wrap_text(spec['comments'], 78))
             initial.extend(wrapped)
-        original = yaml_dump(dict(row), default_flow_style=False).split('\n')
+        can_shows = map(lambda x: x['name'],
+                        filter(lambda x: 'noshow' not in x.get('perms', []),
+                               spec['columns']))
+        original_data = dict(filter(lambda x: x[0] in can_shows,
+                                    dict(row).iteritems()))
+        original = yaml_dump(original_data, default_flow_style=False).split('\n')
         initial.append("")
         initial.append("# originial values")
         initial.append("# ----------------")
         initial.extend(map(comment_yaml, original))
         initial.append("# new values")
         initial.append("# ----------")
-        can_edit = dict(filter(lambda x: x[0] in writables, dict(row).items()))
-        initial.extend(yaml_dump(can_edit,
+        edit_form = defaults
+        edit_form.update(dict((filter(lambda x: x[0] in can_edits,
+                                      dict(row).items()))))
+        initial.extend(yaml_dump(edit_form,
                                  default_flow_style=False).split('\n'))
         try:
             status, yaml_str = edit(draft, opts, initial="\n".join(initial))
             reviewed = yaml_load(yaml_str)
+            for (k, v) in reviewed.iteritems():
+                if isinstance(v, dict):
+                    reviewed[k].update(dict(map(
+                        lambda x: (x[0], unicode(x[1])), v.iteritems())))
             db.execute(text(spec['update']), pk=opts.pk, **reviewed)
             return 0, "Record updated successfully!"
         except (YAMLParserError, YAMLScannerError) as e:
             err = EditError('YAML Parsing Error: %s' % str(e))
             err.original_exception = e
             raise err
-        except sqlexc.StatementError:
+        except sqlexc.StatementError as e:
             err = EditError('SQL Statement Error: %s' % str(e))
             err.original_exception = e
             raise err
@@ -268,6 +285,19 @@ def parse_cli_option():
     cmd_list_views = cmds.add_parser('list-views', help='list all views')
 
     return base.parse_args()
+
+
+def parse_column_default(x):
+
+    if 'default' not in x:
+        return ''
+
+    default = x['default']
+    print x['name'], default
+    if default.lower() == 'now()':
+        return datetime.now().strftime('%Y-%m-%d')
+
+    return default
 
 
 def parse_filter_expr(expr):

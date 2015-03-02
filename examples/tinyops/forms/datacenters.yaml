@@ -1,0 +1,11 @@
+---
+source: default
+title: 数据中心
+columns:
+  - name: name
+    header: 名称
+  - name: contacts
+    header: 联系方式
+
+insert: >-
+  INSERT INTO datacenters(name, contacts) VALUES(:name, :contacts)

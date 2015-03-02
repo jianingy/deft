@@ -1,0 +1,11 @@
+---
+source: default
+title: 硬件型号列表
+columns:
+  - name: model
+    header: 型号
+  - name: params
+    header: 参数
+
+list: SELECT id, model from models
+detail: SELECT id, model, params from models

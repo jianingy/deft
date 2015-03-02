@@ -1,0 +1,12 @@
+---
+source: default
+title: 硬件设备列表
+columns:
+  - name: model
+    header: 型号
+  - name: params
+    header: 参数
+
+insert: INSERT INTO models (model) VALUES (:model);
+detail: SELECT id, model, params from models
+update: UPDATE models SET model=:model, params=:params WHERE id=:pk

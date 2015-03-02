@@ -1,0 +1,32 @@
+---
+source: default
+title: 硬件设备列表
+columns:
+  - name: hostname
+    header: 主机名
+  - name: lan_ip
+    header: 内网地址
+  - name: lan_mac
+    header: 内网 mac 地址
+  - name: oob_ip
+    header: 带外地址
+  - name: oob_mac
+    header: 带外 mac 地址
+  - name: state
+    header: 设备状态
+    default: premount
+  - name: environment
+    header: 工作环境
+    default: buffer
+  - name: model
+    header: 设备型号
+  - name: purchased_at
+    header: 购买日期
+  - name: warrant_until
+    header: 过保日期
+  - name: location
+    header: 物理位置
+
+
+list: SELECT hardwares.id, hostname, lan_ip, oob_ip, state, model, environment FROM hardwares LEFT JOIN models ON model_id = models.id
+detail: SELECT hardwares.id, hostname, lan_ip, lan_mac, oob_ip, oob_mac, state, environment, models.model, purchased_at, warrant_until, locations.start_unit || '@' || locations.rack || '@' || datacenters.name AS location FROM hardwares LEFT JOIN models ON model_id = models.id LEFT JOIN locations ON locations.id=hardwares.loc_id LEFT JOIN datacenters ON locations.dc_id=datacenters.id
