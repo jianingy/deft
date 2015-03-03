@@ -158,7 +158,8 @@ def create_form(draft, rmap, opts):
                                  default_flow_style=False).split('\n'))
         try:
             if opts.values:
-                reviewed = parse_opt_values(opts.values)
+                reviewed = avails
+                reviewed.update(parse_opt_values(opts.values))
             else:
                 _, yaml_str = edit(draft, opts, initial="\n".join(initial))
                 reviewed = yaml_load(yaml_str)
@@ -315,7 +316,7 @@ def parse_cli_option():
 def parse_column_default(x):
 
     if 'default' not in x:
-        return ''
+        return None
 
     default = x['default']
     if default.lower() == 'now()':
@@ -404,12 +405,12 @@ def safe_edit(func, rmap, opts):
                 success(status)
                 return
             except EditError as e:
-                errmsg = unicode(e)
+                errmsg = "%s" % e
                 if isinstance(e.original_exception, sqlexc.StatementError):
-                    if re_search("required for bind parameter '([^']+)'", unicode(e)):
+                    if re_search("required for bind parameter '([^']+)'", str(e)):
                         errmsg = ("missing parameter: %s" %
                                   re_search.found.group(1))
-                    elif re_search('duplicate key value violates unique constraint "([^"]+)"', unicode(e)):
+                    elif re_search('duplicate key value violates unique constraint "([^"]+)"', str(e)):
                         errmsg = ("duplicate key: %s" % re_search.found.group(1))
                 error(errmsg)
                 if opts.values:
