@@ -29,7 +29,7 @@ from sqlalchemy.sql import text
 from subprocess import call
 from tempfile import NamedTemporaryFile
 from textwrap import wrap as wrap_text
-from yaml import load as yaml_load, safe_dump as yaml_dump
+from yaml import load as yaml_load, safe_dump as yaml_safe_dump
 from yaml.parser import ParserError as YAMLParserError
 from yaml.scanner import ScannerError as YAMLScannerError
 
@@ -154,8 +154,7 @@ def create_form(draft, rmap, opts):
         initial.append("# ----------")
         avails = dict(map(lambda x: (x['name'], parse_column_default(x)),
                           spec['columns']))
-        initial.extend(yaml_dump(avails,
-                                 default_flow_style=False).split('\n'))
+        initial.extend(yaml_dump(avails).split('\n'))
         try:
             if opts.values:
                 reviewed = avails
@@ -180,7 +179,7 @@ def edit(draft, opts, initial=''):
     draft.flush()
     written = os.fstat(draft.fileno()).st_size
     if initial and written == 0:
-        draft.write(initial.encode('UTF-8'))
+        draft.write(initial)
         draft.flush()
     status = call([editor, draft.name])
     draft.seek(0, 0)
@@ -216,7 +215,7 @@ def edit_form(draft, rmap, opts):
                                spec['columns']))
         original_data = dict(filter(lambda x: x[0] in can_shows,
                                     dict(row).iteritems()))
-        original = yaml_dump(original_data, default_flow_style=False).split('\n')
+        original = yaml_dump(original_data).split('\n')
         initial.append("")
         initial.append("# originial values")
         initial.append("# ----------------")
@@ -226,8 +225,8 @@ def edit_form(draft, rmap, opts):
         edit_form = defaults
         edit_form.update(dict((filter(lambda x: x[0] in can_edits,
                                       dict(row).items()))))
-        initial.extend(yaml_dump(edit_form,
-                                 default_flow_style=False).split('\n'))
+        initial.extend(yaml_dump(edit_form).split('\n'))
+
         try:
             if opts.values:
                 reviewed = edit_form
@@ -484,6 +483,11 @@ def update_nested_dict(d, u):
         else:
             d[k] = u[k]
     return d
+
+
+def yaml_dump(d):
+    return yaml_safe_dump(d, default_flow_style=False,
+                          allow_unicode=True)
 
 
 def main():

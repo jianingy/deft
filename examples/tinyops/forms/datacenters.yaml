@@ -7,5 +7,7 @@ columns:
   - name: contacts
     header: 联系方式
 
-insert: >-
-  INSERT INTO datacenters(name, contacts) VALUES(:name, :contacts)
+insert: INSERT INTO datacenters(name, contacts) VALUES(:name, :contacts)
+detail: SELECT name, contacts FROM datacenters WHERE id = :pk
+update: UPDATE datacenters SET name=:name, contacts=:contacts
+
