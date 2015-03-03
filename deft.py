@@ -318,7 +318,6 @@ def parse_column_default(x):
         return ''
 
     default = x['default']
-    out("%s %s" % (x['name'], default))
     if default.lower() == 'now()':
         return datetime.now().strftime('%Y-%m-%d')
 
@@ -373,6 +372,9 @@ def parse_filter_expr(expr):
 def parse_opt_values(values):
     reviewed = dict()
     for x in values:
+        if x.find(':') == -1:
+            warn("value format error: %s" % x)
+            continue
         key, val = map(lambda x: x.strip(), x.split(':', 1))
         if key.find('.') > -1:
             parent, key = key.split('.', 1)
@@ -382,6 +384,7 @@ def parse_opt_values(values):
                 reviewed[parent] = {key: val}
         else:
             reviewed[key] = val
+    print reviewed
     return reviewed
 
 
