@@ -269,7 +269,7 @@ def open_datasource(rmap, name):
         db_spec = yaml_load(y.read())
 
     db_uri = ("%(dialect)s+%(driver)s://%(user)s:%(password)s"
-              "@%(host)s/%(dbname)s") % db_spec
+              "@%(host)s:%(port)s/%(dbname)s") % db_spec
     engine = create_engine(db_uri)
     conn = engine.connect()
     try:
