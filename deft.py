@@ -37,6 +37,7 @@ import argparse
 import collections
 import pkg_resources
 import sqlalchemy.exc as sqlexc
+import re
 import sys
 import os
 
@@ -81,6 +82,10 @@ class RecordNotFoundError(GenericError):
     message = "cannot find record by given primary key"
 
 
+def success(s):
+    print >>sys.stderr, "OK:", s
+
+
 def warn(s):
     print >>sys.stderr, "WARN:", s
 
@@ -92,6 +97,10 @@ def error(s):
 def fatal(s, code=111):
     print >>sys.stderr, "FATAL:", s
     sys.exit(code)
+
+
+def out(s):
+    print s
 
 
 def build_recipe_map(opts):
@@ -250,7 +259,7 @@ def list_all_views(rmap):
                    spec.get('title', ''),
                    path,
                    spec.get('description', '')])
-    print t
+    out(t)
 
 
 @contextmanager
@@ -309,7 +318,7 @@ def parse_column_default(x):
         return ''
 
     default = x['default']
-    print x['name'], default
+    out("%s %s" % (x['name'], default))
     if default.lower() == 'now()':
         return datetime.now().strftime('%Y-%m-%d')
 
@@ -376,15 +385,30 @@ def parse_opt_values(values):
     return reviewed
 
 
+def re_search(regex, string):
+    obj = re.search(regex, string)
+    if obj:
+        setattr(re_search, 'found', obj)
+        return True
+    return False
+
+
 def safe_edit(func, rmap, opts):
     with scratch() as draft:
         while True:
             try:
                 _, status = func(draft, rmap, opts)
-                print status
+                success(status)
                 return
             except EditError as e:
-                print >>sys.stderr, "File Error: %s" % e
+                errmsg = unicode(e)
+                if isinstance(e.original_exception, sqlexc.StatementError):
+                    if re_search("required for bind parameter '([^']+)'", unicode(e)):
+                        errmsg = ("missing parameter: %s" %
+                                  re_search.found.group(1))
+                    elif re_search('duplicate key value violates unique constraint "([^"]+)"', unicode(e)):
+                        errmsg = ("duplicate key: %s" % re_search.found.group(1))
+                error(errmsg)
                 if opts.values:
                     return
                 else:
@@ -424,9 +448,9 @@ def show_view(rmap, opts):
         with open_datasource(rmap, spec['source']) as db:
             norm = lambda x: dict(map(lambda x: (x[0], unicode(x[1])),
                                       x.items()))
-            print json_encode(map(lambda row: dict(norm(row)),
-                                  db.execute(query).fetchall()),
-                              indent=4)
+            out(json_encode(map(lambda row: dict(norm(row)),
+                                db.execute(query).fetchall()),
+                            indent=4))
     else:
         with open_datasource(rmap, spec['source']) as db:
             result = db.execute(query)
@@ -439,14 +463,13 @@ def show_view(rmap, opts):
                     t.align['value'] = 'l'
                     map(lambda x: t.add_row([title(x) if x in columns else x,
                                              row[x]]), result.keys())
-                    print t
-                    print
+                    out("%s\n" % t)
             else:
                 headers = map(lambda x: title(x) if x in columns else x,
                               result.keys())
                 t = PrettyTable(headers)
                 map(lambda row: t.add_row(row), rows)
-                print t
+                out(t)
 
 
 def update_nested_dict(d, u):

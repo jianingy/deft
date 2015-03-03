@@ -11,7 +11,7 @@ CREATE TABLE IF NOT EXISTS locations (id SERIAL PRIMARY KEY,
                                 rack VARCHAR(60),
                                 start_unit INT);
 
-CREATE TABLE IF NOT EXISTS models (id SERIAL PRIMARY KEY, model VARCHAR(60), params HSTORE);
+CREATE TABLE IF NOT EXISTS models (id SERIAL PRIMARY KEY, model VARCHAR(60) UNIQUE, params HSTORE);
 
 CREATE TABLE IF NOT EXISTS hardwares (id SERIAL PRIMARY KEY,
                                 hostname VARCHAR(60) UNIQUE NOT NULL,
